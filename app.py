@@ -46,7 +46,7 @@ def search_apps_by_topic(topic):
         return []
 
 # Function to extract reviews
-def extract_reviews(app_id, num_reviews=100):
+def extract_reviews(app_id, num_reviews=50):
     result, _ = reviews(app_id, lang="en", country="us", count=num_reviews)
     return [r["content"] for r in result if isinstance(r["content"], str) and r["content"].strip()]
 
@@ -115,7 +115,7 @@ def generate_insights():
         app_id = app_data["appId"]
         print(f"Fetching reviews for app: {app_id}")
         
-        reviews_texts = extract_reviews(app_id, num_reviews=100)
+        reviews_texts = extract_reviews(app_id, num_reviews=50)
         if not reviews_texts:
             insights[app_id] = {
                 "app_name": app_data["name"],
