@@ -5,3 +5,4 @@ torch
 keybert
 scikit-learn
 google-generativeai
+gunicorn

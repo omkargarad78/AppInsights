@@ -3,6 +3,7 @@ from google_play_scraper import search, reviews, app as scrape_app
 from transformers import pipeline
 from keybert import KeyBERT
 import google.generativeai as genai
+import os
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -139,6 +140,6 @@ def generate_insights():
     
     return render_template("results.html", insights=insights)
 
-# Run Flask app
 if __name__ == "__main__":
-    app.run()
+    port = int(os.environ.get("PORT", 5000))  # Use dynamic port assignment
+    app.run(host="0.0.0.0", port=port)
