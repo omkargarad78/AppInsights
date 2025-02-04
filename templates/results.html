@@ -41,14 +41,10 @@
                 <strong>Rating:</strong> {{ data.rating }} stars
             </p>
 
-            <ul class="mt-4 space-y-4">
-                {% for point in data.pain_points %}
-                <li class="bg-white p-4 rounded-lg shadow-sm">
-                    <p class="text-gray-800"><strong>Pain Point:</strong> {{ point.pain_point }}</p>
-                    <p class="text-gray-600"><strong>Solution:</strong> {{ point.solution }}</p>
-                </li>
-                {% endfor %}
-            </ul>
+            <div class="mt-4 p-4 bg-white rounded-lg shadow-sm">
+                <h3 class="text-lg font-semibold text-indigo-600">AI-Generated Insights</h3>
+                <p class="text-gray-700 mt-2">{{ data.ai_insights }}</p>
+            </div>
         </div>
         {% endfor %}
 

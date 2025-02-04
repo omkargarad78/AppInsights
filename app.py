@@ -1,143 +1,143 @@
 from flask import Flask, render_template, request, jsonify
-from google_play_scraper import search, app, reviews
+from google_play_scraper import search, reviews, app as scrape_app
 from transformers import pipeline
 from keybert import KeyBERT
-from google_play_scraper import app as scrape_app
+import google.generativeai as genai
 
 # Initialize Flask app
 app = Flask(__name__)
 
-# Function to search apps based on a topic
-# Function to search apps based on a topic
-def search_apps_by_topic(topic):
-    search_results = search(topic, lang="en", country="us")
-    app_ids = []
-    for result in search_results:
-        app_id = result["appId"]
-        app_details = scrape_app(app_id, lang="en", country="us")
-
-        # Safely handle the installs value
-        installs = app_details.get("installs", "0")
-        if installs:
-            installs = installs.replace("+", "").replace(",", "")
-            try:
-                installs = int(installs)
-            except ValueError:
-                installs = 0
-        else:
-            installs = 0
-
-        rating = app_details.get("score", 0)
-        app_ids.append(
-            {
-                "appId": app_id,
-                "name": app_details.get("title"),
-                "installs": installs,
-                "rating": rating,
-            }
-        )
-
-    sorted_apps = sorted(app_ids, key=lambda x: (x["installs"], x["rating"]), reverse=True)
-    return sorted_apps[:3] #It will take top 3 apps with higest downloads and users
-
-
-# Function to extract reviews
-def extract_reviews(app_id, num_reviews=10000):
-    result, _ = reviews(app_id, lang="en", country="us", count=num_reviews)
-    review_texts = [review["content"] for review in result]
-    return review_texts
-
-# Function to analyze sentiment
-def analyze_sentiment(reviews):
-    sentiment_model = pipeline("sentiment-analysis")
-    analysis_results = []
-    for review in reviews:
-        sentiment = sentiment_model(review)[0]
-        analysis_results.append(
-            {"review": review, "sentiment": sentiment["label"], "score": sentiment["score"]}
-        )
-    return analysis_results
-
-# Function to extract pain points
-def extract_pain_points(reviews):
-    kw_model = KeyBERT()
-    all_reviews = [r["review"] for r in reviews]
-    pain_keywords = []
-    for review in all_reviews:
-        keywords = kw_model.extract_keywords(review, top_n=3)
-        pain_keywords.extend([kw[0] for kw in keywords])
-    pain_keywords = list(set(pain_keywords))  # Remove duplicates
-
-    solutions = {
-        "crash": "Fix the app stability issues by releasing a new update and testing it on multiple devices.",
-        "bug": "Investigate reported bugs and fix them in the next patch.",
-        "lag": "Improve performance and optimize the app's response time.",
-        "battery drain": "Optimize battery usage by reducing background processes and optimizing app performance.",
-        "feature missing": "Consider adding the requested features to the next version of the app.",
-        "slow": "Improve app loading speed by optimizing resources and reducing load time.",
-        "notifications": "Ensure that notifications are working properly and notify users of important updates.",
-        "interface": "Work on improving the user interface by making it more intuitive and easier to navigate.",
-        "ads": "Reduce the frequency of ads or provide an option for users to remove them for a better experience.",
-    }
-
-    identified_solutions = []
-    for keyword in pain_keywords:
-        if keyword in solutions:
-            identified_solutions.append(
-                {"pain_point": keyword, "solution": solutions[keyword]}
-            )
-    return identified_solutions
+# Configure Gemini AI API
+GEMINI_API_KEY = "AIzaSyBMr1VwnfUCbQ_NV1TsXPPsP1KRf_p5Kts"
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel("gemini-pro")
 
 # Route for home page
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# Route for generating insights
-# Helper function to format downloads
-def format_downloads(number):
-    if number >= 10**7:
-        return f"{number // 10**6}M"  # Convert to millions
-    elif number >= 10**5:
-        return f"{number // 10**5}L"  # Convert to lakhs
-    elif number >= 10**3:
-        return f"{number // 10**3}k"  # Convert to thousands
-    else:
-        return str(number)  # Keep as is for smaller numbers
+# Function to search apps based on a topic
+def search_apps_by_topic(topic):
+    try:
+        search_results = search(topic, lang="en", country="us")
+        app_ids = []
+        for result in search_results:
+            app_id = result["appId"]
+            try:
+                app_details = scrape_app(app_id, lang="en", country="us")
+                installs = app_details.get("installs", "0").replace("+", "").replace(",", "")
+                installs = int(installs) if installs.isdigit() else 0
+                rating = app_details.get("score", 0)
+                app_ids.append({
+                    "appId": app_id,
+                    "name": app_details.get("title"),
+                    "installs": installs,
+                    "rating": rating,
+                })
+            except Exception as e:
+                print(f"Error fetching app details for {app_id}: {e}")
+                continue
+        sorted_apps = sorted(app_ids, key=lambda x: (x["installs"], x["rating"]), reverse=True)
+        return sorted_apps[:3]
+    except Exception as e:
+        print(f"Error searching apps: {e}")
+        return []
 
-# Updated generate_insights function
+# Function to extract reviews
+def extract_reviews(app_id, num_reviews=100):
+    result, _ = reviews(app_id, lang="en", country="us", count=num_reviews)
+    return [r["content"] for r in result if isinstance(r["content"], str) and r["content"].strip()]
+
+
+
+def analyze_sentiment(reviews):
+    sentiment_model = pipeline("sentiment-analysis")
+    analysis_results = []
+    for review in reviews:
+        if not review or not isinstance(review, str) or review.strip() == "":
+            continue  # Skip invalid reviews
+        
+        try:
+            sentiment = sentiment_model(review)[0]
+            analysis_results.append({"review": review, "sentiment": sentiment["label"]})
+        except Exception as e:
+            print(f"Error analyzing sentiment for review: {review}. Error: {e}")
+            continue
+    
+    return analysis_results
+
+
+def generate_ai_insights(sentiments):
+    # Convert sentiments to a readable string
+    sentiment_str = "\n".join([f"- {s['review']}: {s['sentiment']}" for s in sentiments])
+    
+    # Create the prompt
+    prompt = f"""
+    Based on the following app review sentiments, generate a single, concise paragraph (max 1000 characters) that summarizes key user issues, frustrations, and improvement opportunities. Do not list any points or headings; the response should be in paragraph form. Include insights on:
+
+    - Usability problems such as navigation issues or confusing interface
+    - Performance problems like lags, crashes, battery drain, or high memory usage
+    - Missing or buggy features that users have requested
+    - General user satisfaction and frustration areas
+    - Actionable recommendations for improving the app, prioritizing what matters most to users.
+
+    Ensure the paragraph is clear, concise, and covers all the critical areas in a seamless flow without breaking it into separate points. 
+    {sentiment_str}
+    """
+    
+    try:
+        # Generate AI insights
+        response = model.generate_content(prompt)
+        if response and hasattr(response, "text") and response.text.strip():
+            return response.text.strip()
+        else:
+            return "No AI insights available. The insights could not be generated."
+    except Exception as e:
+        print(f"Error generating AI insights: {e}")
+        return "Failed to generate AI insights. Please try again later."
+
+
 @app.route("/generate_insights", methods=["POST"])
 def generate_insights():
     topic = request.form.get("topic")
     if not topic:
         return jsonify({"error": "Topic is required!"}), 400
-
+    
+    print(f"Searching apps for topic: {topic}")
     app_ids = search_apps_by_topic(topic)
     if not app_ids:
         return jsonify({"error": "No apps found for the given topic."}), 404
-
+    
     insights = {}
     for app_data in app_ids:
         app_id = app_data["appId"]
+        print(f"Fetching reviews for app: {app_id}")
+        
         reviews_texts = extract_reviews(app_id, num_reviews=100)
+        if not reviews_texts:
+            insights[app_id] = {
+                "app_name": app_data["name"],
+                "downloads": app_data["installs"],
+                "rating": round(app_data["rating"], 2),
+                "ai_insights": "No reviews available. Encourage users to leave feedback."
+            }
+            continue
+        
+        print(f"Analyzing sentiment for app: {app_id}")
         sentiments = analyze_sentiment(reviews_texts)
-        pain_points_with_solutions = extract_pain_points(sentiments)
-
-        # Format downloads
-        formatted_downloads = format_downloads(app_data["installs"])
-
-        # Format the rating to 2 decimal places
-        rating = round(app_data["rating"], 2)
-
+        
+        print(f"Generating AI insights for app: {app_id}")
+        ai_insights = generate_ai_insights(sentiments)
+        
         insights[app_id] = {
             "app_name": app_data["name"],
-            "downloads": formatted_downloads,
-            "rating": rating,
-            "pain_points": pain_points_with_solutions,
+            "downloads": app_data["installs"],
+            "rating": round(app_data["rating"], 2),
+            "ai_insights": ai_insights
         }
-
+    
     return render_template("results.html", insights=insights)
-
 
 # Run Flask app
 if __name__ == "__main__":
