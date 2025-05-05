@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>App Insights Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Keyframes for smooth gradient transitions */
+      @keyframes gradientBackground {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
+
+      /* Gradient animation for the background */
+      body {
+        background: linear-gradient(
+          135deg,
+          #fdfbfb,
+          #ebedee,
+          #dff1f7,
+          #f3e9f1,
+          #f9f9f9
+        );
+        background-size: 400% 400%;
+        animation: gradientBackground 15s ease infinite;
+      }
+
+      /* Loading animation */
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .loading-pulse {
+        animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen flex items-center justify-center text-gray-800">
+    <div
+      class="max-w-lg w-full mx-auto bg-white rounded-2xl shadow-lg overflow-hidden"
+    >
+      <!-- Header -->
+      <div class="bg-gradient-to-r from-blue-100 to-indigo-200 p-6 text-center">
+        <h1 class="text-3xl font-extrabold text-indigo-800">
+          App Insights Generator
+        </h1>
+        <p class="mt-2 text-indigo-600 text-sm">
+          Enter a topic to generate actionable insights and improve your
+          product.
+        </p>
+      </div>
+
+      <!-- Form -->
+      <div id="formContainer" class="p-8 flex flex-col space-y-6">
+        <form
+          id="insightsForm"
+          method="POST"
+          action="/generate_insights"
+          class="relative"
+        >
+          <label
+            for="topic"
+            class="block text-lg font-medium text-gray-700 mb-2"
+            >Enter a Topic:</label
+          >
+          <input
+            type="text"
+            id="topic"
+            name="topic"
+            placeholder="e.g., meditation, fitness"
+            class="w-full bg-gray-50 border border-gray-300 rounded-lg p-4 focus:outline-none focus:ring focus:ring-indigo-300 shadow-sm"
+            required
+          />
+          <button
+            type="submit"
+            id="submitButton"
+            class="mt-6 w-full bg-indigo-500 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 hover:bg-indigo-400 flex justify-center items-center gap-3"
+          >
+            <span id="buttonText">Generate Insights</span>
+            <svg
+              id="loadingSpinner"
+              class="hidden w-5 h-5 animate-spin text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v8H4z"
+              ></path>
+            </svg>
+          </button>
+        </form>
+      </div>
+
+      <!-- Loading State (Initially Hidden) -->
+      <div
+        id="loadingContainer"
+        class="hidden p-8 flex flex-col items-center justify-center space-y-8"
+      >
+        <div class="w-24 h-24 relative">
+          <div class="absolute inset-0 flex items-center justify-center">
+            <svg
+              class="animate-spin w-16 h-16 text-indigo-500"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v8H4z"
+              ></path>
+            </svg>
+          </div>
+        </div>
+
+        <div class="text-center space-y-4">
+          <h3 class="text-xl font-bold text-indigo-700">Generating Insights</h3>
+          <div id="loadingSteps" class="space-y-2 text-left">
+            <p class="loading-pulse text-gray-600">
+              🔍 Searching for top apps...
+            </p>
+            <p
+              class="loading-pulse text-gray-600 opacity-0 transition-opacity duration-500"
+            >
+              📱 Analyzing app details...
+            </p>
+            <p
+              class="loading-pulse text-gray-600 opacity-0 transition-opacity duration-500"
+            >
+              💬 Extracting user reviews...
+            </p>
+            <p
+              class="loading-pulse text-gray-600 opacity-0 transition-opacity duration-500"
+            >
+              🧠 Performing sentiment analysis...
+            </p>
+            <p
+              class="loading-pulse text-gray-600 opacity-0 transition-opacity duration-500"
+            >
+              💡 Identifying pain points...
+            </p>
+            <p
+              class="loading-pulse text-gray-600 opacity-0 transition-opacity duration-500"
+            >
+              ✅ Generating business solutions...
+            </p>
+          </div>
+          <p class="text-sm text-gray-500 mt-4">
+            This may take a minute or two. Please don't close this page.
+          </p>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="bg-gray-100 p-4 text-center text-sm text-gray-500">
+        &copy; 2025 App Insights. All rights reserved.
+      </div>
+    </div>
+
+    <script>
+      document
+        .getElementById("insightsForm")
+        .addEventListener("submit", function (event) {
+          // Prevent default form submission
+          event.preventDefault();
+
+          // Get the topic value
+          const topic = document.getElementById("topic").value.trim();
+          if (!topic) return;
+
+          // Hide the form and show the loading container
+          document.getElementById("formContainer").classList.add("hidden");
+          document
+            .getElementById("loadingContainer")
+            .classList.remove("hidden");
+
+          // Animate the loading steps sequentially
+          const steps = document.querySelectorAll("#loadingSteps p");
+          steps.forEach((step, index) => {
+            setTimeout(() => {
+              step.classList.remove("opacity-0");
+            }, index * 1500); // Show each step with a 1.5 second delay
+          });
+
+          // Create a FormData object and submit via fetch instead of form submission
+          const formData = new FormData(this);
+
+          fetch("/generate_insights", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.text())
+            .then((html) => {
+              // Replace the entire page content with the response HTML
+              document.open();
+              document.write(html);
+              document.close();
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              alert(
+                "An error occurred while generating insights. Please try again."
+              );
+              // Show the form again in case of error
+              document
+                .getElementById("loadingContainer")
+                .classList.add("hidden");
+              document
+                .getElementById("formContainer")
+                .classList.remove("hidden");
+            });
+        });
+    </script>
+  </body>
+</html>
